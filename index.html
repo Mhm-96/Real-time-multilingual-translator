@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Multilingual Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            margin: 50px auto;
+            text-align: center;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #0066ff;
+        }
+        select, textarea, button {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            background: #0066ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056d6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Real-Time Multilingual Translator</h1>
+        <label for="inputLang">Select Input Language:</label>
+        <select id="inputLang">
+            <option value="en-US">English (US)</option>
+            <option value="es-ES">Spanish</option>
+            <option value="fr-FR">French</option>
+        </select>
+
+        <label for="outputLang">Select Output Language:</label>
+        <select id="outputLang">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+        </select>
+
+        <label for="originalText">Original Transcript:</label>
+        <textarea id="originalText" rows="4" readonly></textarea>
+
+        <label for="translatedText">Translated Transcript:</label>
+        <textarea id="translatedText" rows="4" readonly></textarea>
+
+        <button id="startStopButton">Start Listening</button>
+        <button id="speakTranslation">Speak Translation</button>
+    </div>
+
+    <script>
+        let recognition;
+        let isListening = false;
+
+        const startStopButton = document.getElementById("startStopButton");
+        const originalText = document.getElementById("originalText");
+        const translatedText = document.getElementById("translatedText");
+        const inputLang = document.getElementById("inputLang");
+        const outputLang = document.getElementById("outputLang");
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => console.log("Listening...");
+            recognition.onerror = (event) => console.error("Speech recognition error:", event);
+            recognition.onend = () => console.log("Stopped listening.");
+
+            recognition.onresult = (event) => {
+                const lastResultIndex = event.results.length - 1;
+                const transcript = event.results[lastResultIndex][0].transcript.trim();
+
+                if (transcript) {
+                    originalText.value = transcript;
+
+                    // Send transcript to the backend for translation
+                    fetch("/translate", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            text: originalTranscript.value.trim(),
+                            target_language: outputLang.value,
+                        }),
+                    })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.translation) {
+                            translatedText.value = data.translation;
+                        } else {
+                            translatedText.value = "Error in translation.";
+                        }
+                    })
+                    .catch((error) => console.error("Error during translation:", error));
+                }
+            };
+        } else {
+            alert("Speech recognition is not supported in this browser.");
+        }
+
+        startStopButton.addEventListener("click", () => {
+            if (isListening) {
+                recognition.stop();
+                startStopButton.textContent = "Start Listening";
+            } else {
+                recognition.lang = inputLang.value;
+                recognition.start();
+                startStopButton.textContent = "Stop Listening";
+            }
+            isListening = !isListening;
+        });
+
+        document.getElementById("speakTranslation").addEventListener("click", () => {
+            const utterance = new SpeechSynthesisUtterance(translatedText.value);
+            utterance.lang = outputLang.value;
+            window.speechSynthesis.speak(utterance);
+        });
+    </script>
+</body>
+</html>
